@@ -8,6 +8,7 @@
 #include "pink/include/pink_conn.h"
 #include "pink/include/redis_conn.h"
 #include "pink/include/pink_thread.h"
+#include "pink/src/holy_thread.h"
 
 using namespace pink;
 
@@ -100,7 +101,7 @@ int main(int argc, char* argv[]) {
 
   ConnFactory *conn_factory = new MyConnFactory();
 
-  ServerThread* my_thread = NewHolyThread(my_port, conn_factory, 1000);
+  ServerThread* my_thread = new HolyThread(my_port, conn_factory, 1000, NULL, false);
   if (my_thread->StartThread() != 0) {
     printf("StartThread error happened!\n");
     exit(-1);
