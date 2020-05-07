@@ -51,6 +51,7 @@ pink/examples/myproto.pb.h
 *binlog_parser_test
 *redis_parser_test
 *thread_pool_test
+*myredis_cli
 
 pink/src/build_version.cc
 
