@@ -321,7 +321,7 @@ void HolyThread::ProcessNotifyEvents(const pink::PinkFiredEvent* pfe) {
           conn = nullptr;
           {
             slash::WriteLock l(&rwlock_);
-            conns_.erase(pfe->fd);
+            conns_.erase(fd);
           }
         }
       }
