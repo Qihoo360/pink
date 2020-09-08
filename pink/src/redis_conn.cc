@@ -210,11 +210,7 @@ void RedisConn::AsynProcessRedisCmds(const std::vector<RedisCmdArgsType>& argvs,
 
 void RedisConn::NotifyEpoll(bool success) {
   PinkItem ti(fd(), ip_port(), success ? kNotiEpolloutAndEpollin : kNotiClose);
-  pink_epoll()->notify_queue_lock();
-  std::queue<PinkItem> *q = &(pink_epoll()->notify_queue_);
-  q->push(ti);
-  pink_epoll()->notify_queue_unlock();
-  write(pink_epoll()->notify_send_fd(), "", 1);
+  pink_epoll()->Register(ti, true);
 }
 
 int RedisConn::ParserDealMessageCb(RedisParser* parser, const RedisCmdArgsType& argv) {

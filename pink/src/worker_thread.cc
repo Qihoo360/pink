@@ -16,6 +16,7 @@ namespace pink {
 
 WorkerThread::WorkerThread(ConnFactory *conn_factory,
                            ServerThread* server_thread,
+                           int queue_limit_,
                            int cron_interval)
       : private_data_(nullptr),
         server_thread_(server_thread),
@@ -25,7 +26,7 @@ WorkerThread::WorkerThread(ConnFactory *conn_factory,
   /*
    * install the protobuf handler here
    */
-  pink_epoll_ = new PinkEpoll();
+  pink_epoll_ = new PinkEpoll(queue_limit_);
 }
 
 WorkerThread::~WorkerThread() {
@@ -62,6 +63,7 @@ std::shared_ptr<PinkConn> WorkerThread::MoveConnOut(int fd) {
   }
   return conn;
 }
+
 
 void *WorkerThread::ThreadMain() {
   int nfds;
@@ -107,13 +109,7 @@ void *WorkerThread::ThreadMain() {
             continue;
           } else {
             for (int32_t idx = 0; idx < nread; ++idx) {
-              {
-                pink_epoll_->notify_queue_lock();
-                ti = pink_epoll_->notify_queue_.front();
-                pink_epoll_->notify_queue_.pop();
-                pink_epoll_->notify_queue_unlock();
-              }
-
+              PinkItem ti = pink_epoll_->notify_queue_pop();
               if (ti.notify_type() == kNotiConnect) {
                 std::shared_ptr<PinkConn> tc = conn_factory_->NewPinkConn(
                     ti.fd(), ti.ip_port(),
@@ -156,6 +152,7 @@ void *WorkerThread::ThreadMain() {
         if (pfe == NULL) {
           continue;
         }
+
         std::map<int, std::shared_ptr<PinkConn>>::iterator iter = conns_.find(pfe->fd);
         if (iter == conns_.end()) {
           pink_epoll_->PinkDelEvent(pfe->fd);

@@ -66,7 +66,6 @@ class PubSubThread : public Thread {
   int ClientChannelSize(std::shared_ptr<PinkConn> conn);
 
   int msg_pfd_[2];
-  int notify_pfd_[2];
   bool should_exit_;
 
   mutable slash::RWMutex rwlock_; /* For external statistics */
@@ -80,7 +79,7 @@ class PubSubThread : public Thread {
    * receive fd from worker thread
    */
   slash::Mutex mutex_;
-  std::queue<int > fd_queue_;
+  std::queue<PinkItem> queue_;
 
   std::string channel_;
   std::string message_;

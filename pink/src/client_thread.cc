@@ -302,11 +302,7 @@ void ClientThread::NotifyWrite(const std::string ip_port) {
   // put fd = 0, cause this lib user doesnt need to know which fd to write to
   // we will check fd by checking ipport_conns_
   PinkItem ti(0, ip_port, kNotiWrite);
-  pink_epoll_->notify_queue_lock();
-  std::queue<PinkItem> *q = &(pink_epoll_->notify_queue_);
-  q->push(ti);
-  pink_epoll_->notify_queue_unlock();
-  write(pink_epoll_->notify_send_fd(), "", 1);
+  pink_epoll_->Register(ti, true);
 }
 
 
@@ -318,13 +314,7 @@ void ClientThread::ProcessNotifyEvents(const PinkFiredEvent* pfe) {
       return;
     } else {
       for (int32_t idx = 0; idx < nread; ++idx) {
-        PinkItem ti;
-        {
-          pink_epoll_->notify_queue_lock();
-          ti = pink_epoll_->notify_queue_.front();
-          pink_epoll_->notify_queue_.pop();
-          pink_epoll_->notify_queue_unlock();
-        }
+        PinkItem ti = pink_epoll_->notify_queue_pop();
         std::string ip_port = ti.ip_port();
         int fd = ti.fd();
         if (ti.notify_type() == kNotiWrite) {

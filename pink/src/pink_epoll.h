@@ -20,7 +20,8 @@ struct PinkFiredEvent {
 
 class PinkEpoll {
  public:
-  PinkEpoll();
+  static const int kUnlimitedQueue = -1;
+  PinkEpoll(int queue_limit = kUnlimitedQueue);
   ~PinkEpoll();
   int PinkAddEvent(const int fd, const int mask);
   int PinkDelEvent(const int fd);
@@ -36,18 +37,10 @@ class PinkEpoll {
   int notify_send_fd() {
     return notify_send_fd_;
   }
+  PinkItem notify_queue_pop();
 
-  void notify_queue_lock() {
-    notify_queue_protector_.Lock();
-  }
-  void notify_queue_unlock() {
-    notify_queue_protector_.Unlock();
-  }
-
-  /*
-   * The PbItem queue is the fd queue, receive from dispatch thread
-   */
-  std::queue<PinkItem> notify_queue_;
+  bool Register(const PinkItem& it, bool force);
+  bool Deregister(const PinkItem& it) { return false; }
 
  private:
   int epfd_;
@@ -55,7 +48,12 @@ class PinkEpoll {
   int timeout_;
   PinkFiredEvent *firedevent_;
 
+  /*
+   * The PbItem queue is the fd queue, receive from dispatch thread
+   */
+  int queue_limit_;
   slash::Mutex notify_queue_protector_;
+  std::queue<PinkItem> notify_queue_;
 
   /*
    * These two fd receive the notify from dispatch thread

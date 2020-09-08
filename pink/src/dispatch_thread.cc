@@ -23,7 +23,7 @@ DispatchThread::DispatchThread(int port,
         queue_limit_(queue_limit) {
   worker_thread_ = new WorkerThread*[work_num_];
   for (int i = 0; i < work_num_; i++) {
-    worker_thread_[i] = new WorkerThread(conn_factory, this, cron_interval);
+    worker_thread_[i] = new WorkerThread(conn_factory, this, queue_limit, cron_interval);
   }
 }
 
@@ -37,7 +37,7 @@ DispatchThread::DispatchThread(const std::string &ip, int port,
         queue_limit_(queue_limit) {
   worker_thread_ = new WorkerThread*[work_num_];
   for (int i = 0; i < work_num_; i++) {
-    worker_thread_[i] = new WorkerThread(conn_factory, this, cron_interval);
+    worker_thread_[i] = new WorkerThread(conn_factory, this, queue_limit, cron_interval);
   }
 }
 
@@ -51,7 +51,7 @@ DispatchThread::DispatchThread(const std::set<std::string>& ips, int port,
         queue_limit_(queue_limit) {
   worker_thread_ = new WorkerThread*[work_num_];
   for (int i = 0; i < work_num_; i++) {
-    worker_thread_[i] = new WorkerThread(conn_factory, this, cron_interval);
+    worker_thread_[i] = new WorkerThread(conn_factory, this, queue_limit, cron_interval);
   }
 }
 
@@ -157,27 +157,18 @@ void DispatchThread::HandleNewConn(
   int next_thread = last_thread_;
   bool find = false;
   for (int cnt = 0; cnt < work_num_; cnt++) {
-    {
-      worker_thread_[next_thread]->pink_epoll()->notify_queue_lock();
-      std::queue<PinkItem> *q = &(worker_thread_[next_thread]->pink_epoll()->notify_queue_);
-      if (q->size() < static_cast<size_t>(queue_limit_)) {
-        log_info("queue limit is %d", queue_limit_);
-        q->push(ti);
-        find = true;
-        worker_thread_[next_thread]->pink_epoll()->notify_queue_unlock();
-        break;
-      }
-      worker_thread_[next_thread]->pink_epoll()->notify_queue_unlock();
+    WorkerThread* worker_thread = worker_thread_[next_thread];
+    find = worker_thread->pink_epoll()->Register(ti, false);
+    if (find) {
+      last_thread_ = (next_thread + 1) % work_num_;
+      log_info("find worker(%d), refresh the last_thread_ to %d",
+          next_thread, last_thread_);
+      break;
     }
     next_thread = (next_thread + 1) % work_num_;
   }
 
-  if (find) {
-    write(worker_thread_[next_thread]->pink_epoll()->notify_send_fd(), "", 1);
-    last_thread_ = (next_thread + 1) % work_num_;
-    log_info("find worker(%d), refresh the last_thread_ to %d",
-             next_thread, last_thread_);
-  } else {
+  if (!find) {
     log_info("all workers are full, queue limit is %d", queue_limit_);
     // every worker is full
     // TODO(anan) maybe add log

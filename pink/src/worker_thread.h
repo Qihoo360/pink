@@ -34,7 +34,7 @@ class ConnFactory;
 class WorkerThread : public Thread {
  public:
   explicit WorkerThread(ConnFactory *conn_factory, ServerThread* server_thread,
-                        int cron_interval = 0);
+                        int queue_limit_, int cron_interval = 0);
 
   virtual ~WorkerThread();
 
@@ -48,12 +48,10 @@ class WorkerThread : public Thread {
 
   std::shared_ptr<PinkConn> MoveConnOut(int fd);
 
-
   PinkEpoll* pink_epoll() {
     return pink_epoll_;
   }
   bool TryKillConn(const std::string& ip_port);
-
 
   mutable slash::RWMutex rwlock_; /* For external statistics */
   std::map<int, std::shared_ptr<PinkConn>> conns_;

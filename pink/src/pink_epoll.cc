@@ -15,7 +15,7 @@ namespace pink {
 
 static const int kPinkMaxClients = 10240;
 
-PinkEpoll::PinkEpoll() : timeout_(1000) {
+PinkEpoll::PinkEpoll(int queue_limit) : timeout_(1000), queue_limit_(queue_limit) {
 #if defined(EPOLL_CLOEXEC)
     epfd_ = epoll_create1(EPOLL_CLOEXEC);
 #else
@@ -74,6 +74,31 @@ int PinkEpoll::PinkDelEvent(const int fd) {
   struct epoll_event ee;
   ee.data.fd = fd;
   return epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, &ee);
+}
+
+bool PinkEpoll::Register(const PinkItem& it, bool force) {
+  bool success = false;
+  notify_queue_protector_.Lock();
+  if (force ||
+      queue_limit_ == kUnlimitedQueue ||
+      notify_queue_.size() < static_cast<size_t>(queue_limit_)) {
+    notify_queue_.push(it);
+    success = true;
+  }
+  notify_queue_protector_.Unlock();
+  if (success) {
+    write(notify_send_fd_, "", 1);
+  }
+  return success;
+}
+
+PinkItem PinkEpoll::notify_queue_pop() {
+  PinkItem it;
+  notify_queue_protector_.Lock();
+  it = notify_queue_.front();
+  notify_queue_.pop();
+  notify_queue_protector_.Unlock();
+  return it;
 }
 
 int PinkEpoll::PinkPoll(const int timeout) {

@@ -300,13 +300,7 @@ void HolyThread::ProcessNotifyEvents(const pink::PinkFiredEvent* pfe) {
       return;
     } else {
       for (int32_t idx = 0; idx < nread; ++idx) {
-        pink::PinkItem ti;
-        {
-          pink_epoll_->notify_queue_lock();
-          ti = pink_epoll_->notify_queue_.front();
-          pink_epoll_->notify_queue_.pop();
-          pink_epoll_->notify_queue_unlock();
-        }
+        pink::PinkItem ti = pink_epoll_->notify_queue_pop();
         std::string ip_port = ti.ip_port();
         int fd = ti.fd();
         if (ti.notify_type() == pink::kNotiWrite) {
