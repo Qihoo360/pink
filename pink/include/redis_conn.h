@@ -42,7 +42,7 @@ class RedisConn: public PinkConn {
   void SetHandleType(const HandleType& handle_type);
   HandleType GetHandleType();
 
-  virtual void AsynProcessRedisCmds(const std::vector<RedisCmdArgsType>& argvs, std::string* response);
+  virtual void ProcessRedisCmds(const std::vector<RedisCmdArgsType>& argvs, bool async, std::string* response);
   void NotifyEpoll(bool success);
 
   virtual int DealMessage(const RedisCmdArgsType& argv, std::string* response) = 0;
