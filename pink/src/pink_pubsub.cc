@@ -103,7 +103,7 @@ void PubSubThread::RemoveConn(std::shared_ptr<PinkConn> conn) {
   channel_mutex_.Unlock();
 
   pink_epoll_->PinkDelEvent(conn->fd());
-  slash::MutexLock l(&mutex_);
+  slash::WriteLock l(&rwlock_);
   conns_.erase(conn->fd());
 }
 
@@ -458,13 +458,16 @@ void *PubSubThread::ThreadMain() {
         in_conn = NULL;
         bool should_close = false;
 
-        std::map<int, std::shared_ptr<PinkConn> >::iterator iter = conns_.find(pfe->fd);
-        if (iter == conns_.end()) {
-          pink_epoll_->PinkDelEvent(pfe->fd);
-          continue;
-        }
+        {
+          slash::ReadLock l(&rwlock_);
+          std::map<int, std::shared_ptr<PinkConn> >::iterator iter = conns_.find(pfe->fd);
+          if (iter == conns_.end()) {
+            pink_epoll_->PinkDelEvent(pfe->fd);
+            continue;
+          }
 
-        in_conn = iter->second;
+          in_conn = iter->second;
+        }
 
         // Send reply
         if (pfe->mask & EPOLLOUT && in_conn->is_reply()) {
