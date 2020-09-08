@@ -14,6 +14,7 @@
 
 #include "slash/include/xdebug.h"
 #include "pink/include/server_thread.h"
+#include "pink/include/pink_conn.h"
 
 namespace pink {
 
@@ -52,6 +53,8 @@ class DispatchThread : public ServerThread {
   virtual std::vector<ServerThread::ConnInfo> conns_info() const override;
 
   virtual std::shared_ptr<PinkConn> MoveConnOut(int fd) override;
+
+  virtual void MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& type) override;
 
   virtual void KillAllConns() override;
 

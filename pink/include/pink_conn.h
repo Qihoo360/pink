@@ -60,6 +60,18 @@ class PinkConn : public std::enable_shared_from_this<PinkConn> {
     return ip_port_;
   }
 
+  bool is_ready_to_reply() {
+    return is_writable() && is_reply();
+  }
+
+  virtual void set_is_writable(const bool is_writable) {
+    is_writable_ = is_writable;
+  }
+
+  virtual bool is_writable() {
+    return is_writable_;
+  }
+
   virtual void set_is_reply(const bool is_reply) {
     is_reply_ = is_reply;
   }
@@ -80,6 +92,10 @@ class PinkConn : public std::enable_shared_from_this<PinkConn> {
     return thread_;
   }
 
+  void set_pink_epoll(PinkEpoll* ep) {
+    pink_epoll_ = ep;
+  }
+
   PinkEpoll* pink_epoll() const {
     return pink_epoll_;
   }
@@ -98,6 +114,7 @@ class PinkConn : public std::enable_shared_from_this<PinkConn> {
   int fd_;
   std::string ip_port_;
   bool is_reply_;
+  bool is_writable_;
   struct timeval last_interaction_;
   int flags_;
 

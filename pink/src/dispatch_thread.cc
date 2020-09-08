@@ -137,6 +137,15 @@ std::shared_ptr<PinkConn> DispatchThread::MoveConnOut(int fd) {
   return nullptr;
 }
 
+void DispatchThread::MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& type) {
+  WorkerThread* worker_thread = worker_thread_[last_thread_];
+  bool success = worker_thread->MoveConnIn(conn, type, true);
+  if (success) {
+    last_thread_ = (last_thread_ + 1) % work_num_;
+    conn->set_pink_epoll(worker_thread->pink_epoll());
+  }
+}
+
 bool DispatchThread::KillConn(const std::string& ip_port) {
   bool result = false;
   for (int i = 0; i < work_num_; ++i) {
@@ -158,7 +167,7 @@ void DispatchThread::HandleNewConn(
   bool find = false;
   for (int cnt = 0; cnt < work_num_; cnt++) {
     WorkerThread* worker_thread = worker_thread_[next_thread];
-    find = worker_thread->pink_epoll()->Register(ti, false);
+    find = worker_thread->MoveConnIn(ti, false);
     if (find) {
       last_thread_ = (next_thread + 1) % work_num_;
       log_info("find worker(%d), refresh the last_thread_ to %d",

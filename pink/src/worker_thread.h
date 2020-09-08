@@ -48,6 +48,10 @@ class WorkerThread : public Thread {
 
   std::shared_ptr<PinkConn> MoveConnOut(int fd);
 
+  bool MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& notify_type, bool force);
+
+  bool MoveConnIn(const PinkItem& it, bool force);
+
   PinkEpoll* pink_epoll() {
     return pink_epoll_;
   }

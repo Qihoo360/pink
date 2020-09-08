@@ -64,6 +64,19 @@ std::shared_ptr<PinkConn> WorkerThread::MoveConnOut(int fd) {
   return conn;
 }
 
+bool WorkerThread::MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& notify_type, bool force) {
+  PinkItem it(conn->fd(), conn->ip_port(), notify_type);
+  bool success = MoveConnIn(it, force);
+  if (success) {
+    slash::WriteLock l(&rwlock_);
+    conns_[conn->fd()] = conn;
+  }
+  return success;
+}
+
+bool WorkerThread::MoveConnIn(const PinkItem& it, bool force) {
+  return pink_epoll_->Register(it, force);
+}
 
 void *WorkerThread::ThreadMain() {
   int nfds;
@@ -140,6 +153,9 @@ void *WorkerThread::ThreadMain() {
                 pink_epoll_->PinkModEvent(ti.fd(), 0, EPOLLIN);
               } else if (ti.notify_type() == kNotiEpolloutAndEpollin) {
                 pink_epoll_->PinkModEvent(ti.fd(), 0, EPOLLOUT | EPOLLIN);
+              } else if (ti.notify_type() == kNotiWait) {
+                // do not register events
+                pink_epoll_->PinkAddEvent(ti.fd(), 0);
               }
             }
           }
@@ -160,7 +176,6 @@ void *WorkerThread::ThreadMain() {
             pink_epoll_->PinkDelEvent(pfe->fd);
             continue;
           }
-
           in_conn = iter->second;
         }
 

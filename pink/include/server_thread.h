@@ -146,6 +146,8 @@ class ServerThread : public Thread {
 
   // Move out from server thread
   virtual std::shared_ptr<PinkConn> MoveConnOut(int fd) = 0;
+  // Move into server thread
+  virtual void MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& type) = 0;
 
   virtual void KillAllConns() = 0;
   virtual bool KillConn(const std::string& ip_port) = 0;

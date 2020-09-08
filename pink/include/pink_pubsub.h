@@ -60,6 +60,29 @@ class PubSubThread : public Thread {
 
   int PubSubNumPat();
 
+  // Move out from pubsub thread
+  void MoveConnOut(std::shared_ptr<PinkConn> conn);
+  // Move into pubsub thread
+  void MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& notify_type);
+
+  enum ReadyState {
+    kNotReady,
+    kReady,
+  };
+
+  struct ConnHandle {
+    ConnHandle(std::shared_ptr<PinkConn> pc, ReadyState state = kNotReady)
+      : conn(pc), ready_state(state) { }
+    void UpdateReadyState(const ReadyState& state);
+    bool IsReady();
+    std::shared_ptr<PinkConn> conn;
+    ReadyState ready_state;
+  };
+
+  void UpdateConnReadyState(int fd, const ReadyState& state);
+
+  bool IsReady(int fd);
+
  private:
   void RemoveConn(std::shared_ptr<PinkConn> conn);
 
@@ -69,7 +92,7 @@ class PubSubThread : public Thread {
   bool should_exit_;
 
   mutable slash::RWMutex rwlock_; /* For external statistics */
-  std::map<int, std::shared_ptr<PinkConn>> conns_;
+  std::map<int, std::shared_ptr<ConnHandle> > conns_;
 
   slash::Mutex pub_mutex_;
   slash::CondVar receiver_rsignal_;

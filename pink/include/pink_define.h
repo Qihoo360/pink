@@ -40,7 +40,8 @@ enum NotifyType {
   kNotiEpollout = 2,
   kNotiEpollin = 3,
   kNotiEpolloutAndEpollin = 4,
-  kNotiWrite = 5
+  kNotiWrite = 5,
+  kNotiWait = 6,
 };
 
 enum EventStatus {
