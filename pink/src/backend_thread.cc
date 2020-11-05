@@ -299,31 +299,19 @@ void BackendThread::InternalDebugPrint() {
 
 void BackendThread::NotifyWrite(const std::string ip_port) {
   // put fd = 0, cause this lib user doesnt need to know which fd to write to
-  // we will check fd by checking backend_conns
+  // we will check fd by checking ipport_conns_
   PinkItem ti(0, ip_port, kNotiWrite);
-  pink_epoll_->notify_queue_lock();
-  std::queue<PinkItem> *q = &(pink_epoll_->notify_queue_);
-  q->push(ti);
-  pink_epoll_->notify_queue_unlock();
-  write(pink_epoll_->notify_send_fd(), "", 1);
+  pink_epoll_->Register(ti, true);
 }
 
 void BackendThread::NotifyWrite(const int fd) {
   PinkItem ti(fd, "", kNotiWrite);
-  pink_epoll_->notify_queue_lock();
-  std::queue<PinkItem> *q = &(pink_epoll_->notify_queue_);
-  q->push(ti);
-  pink_epoll_->notify_queue_unlock();
-  write(pink_epoll_->notify_send_fd(), "", 1);
+  pink_epoll_->Register(ti, true);
 }
 
 void BackendThread::NotifyClose(const int fd) {
   PinkItem ti(fd, "", kNotiClose);
-  pink_epoll_->notify_queue_lock();
-  std::queue<PinkItem> *q = &(pink_epoll_->notify_queue_);
-  q->push(ti);
-  pink_epoll_->notify_queue_unlock();
-  write(pink_epoll_->notify_send_fd(), "", 1);
+  pink_epoll_->Register(ti, true);
 }
 
 void BackendThread::ProcessNotifyEvents(const PinkFiredEvent* pfe) {
@@ -334,13 +322,7 @@ void BackendThread::ProcessNotifyEvents(const PinkFiredEvent* pfe) {
       return;
     } else {
       for (int32_t idx = 0; idx < nread; ++idx) {
-        PinkItem ti;
-        {
-          pink_epoll_->notify_queue_lock();
-          ti = pink_epoll_->notify_queue_.front();
-          pink_epoll_->notify_queue_.pop();
-          pink_epoll_->notify_queue_unlock();
-        }
+        PinkItem ti = pink_epoll_->notify_queue_pop();
         int fd = ti.fd();
         std::string ip_port = ti.ip_port();
         slash::MutexLock l(&mu_);
