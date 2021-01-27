@@ -105,7 +105,7 @@ void ThreadPool::Schedule(TaskFunc func, void* arg) {
   }
   if (!should_stop()) {
     queue_.push(Task(func, arg));
-    rsignal_.SignalAll();
+    rsignal_.Signal();
   }
   mu_.Unlock();
 }
@@ -184,7 +184,7 @@ void ThreadPool::runInThread() {
       TaskFunc func = queue_.front().func;
       void* arg = queue_.front().arg;
       queue_.pop();
-      wsignal_.SignalAll();
+      wsignal_.Signal();
       mu_.Unlock();
       (*func)(arg);
     }
