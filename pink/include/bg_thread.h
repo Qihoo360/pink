@@ -28,7 +28,7 @@ struct TimerItem {
   }
 };
 
-class BGThread : public Thread {
+class BGThread final : public Thread {
  public:
   explicit BGThread(int full = 100000) :
     Thread::Thread(),
@@ -39,6 +39,7 @@ class BGThread : public Thread {
     }
 
   virtual ~BGThread() {
+    // call virtual in destructor, BGThread must be final
     StopThread();
   }
 

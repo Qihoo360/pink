@@ -67,7 +67,7 @@ PubSubThread::~PubSubThread() {
   delete(pink_epoll_);
 }
 
-void PubSubThread::MoveConnOut(std::shared_ptr<PinkConn> conn) {
+void PubSubThread::MoveConnOut(const std::shared_ptr<PinkConn>& conn) {
   RemoveConn(conn);
 
   pink_epoll_->PinkDelEvent(conn->fd());
@@ -77,9 +77,9 @@ void PubSubThread::MoveConnOut(std::shared_ptr<PinkConn> conn) {
   }
 }
 
-void PubSubThread::MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& notify_type) {
+void PubSubThread::MoveConnIn(const std::shared_ptr<PinkConn>& conn, NotifyType notify_type) {
   PinkItem it(conn->fd(), conn->ip_port(), notify_type);
-  pink_epoll_->Register(it, true);
+  pink_epoll_->Register(std::move(it), true);
   {
     slash::WriteLock l(&rwlock_);
     conns_[conn->fd()] = std::make_shared<ConnHandle>(conn);
@@ -105,7 +105,7 @@ bool PubSubThread::IsReady(int fd) {
   return false;
 }
 
-void PubSubThread::RemoveConn(std::shared_ptr<PinkConn> conn) {
+void PubSubThread::RemoveConn(const std::shared_ptr<PinkConn>& conn) {
   pattern_mutex_.Lock();
   for (auto it = pubsub_pattern_.begin(); it != pubsub_pattern_.end(); it++) {
     for (auto conn_ptr = it->second.begin();
@@ -157,7 +157,7 @@ int PubSubThread::Publish(const std::string& channel, const std::string &msg) {
 /*
  * return the number of channels that the specific connection currently subscribed
  */
-int PubSubThread::ClientChannelSize(std::shared_ptr<PinkConn> conn) {
+int PubSubThread::ClientChannelSize(const std::shared_ptr<PinkConn>& conn) {
   int subscribed = 0;
 
   channel_mutex_.Lock();
@@ -185,7 +185,7 @@ int PubSubThread::ClientChannelSize(std::shared_ptr<PinkConn> conn) {
   return subscribed;
 }
 
-void PubSubThread::Subscribe(std::shared_ptr<PinkConn> conn,
+void PubSubThread::Subscribe(const std::shared_ptr<PinkConn>& conn,
                              const std::vector<std::string>& channels,
                              const bool pattern,
                              std::vector<std::pair<std::string, int>>* result) {
@@ -236,7 +236,7 @@ void PubSubThread::Subscribe(std::shared_ptr<PinkConn> conn,
  * Unsubscribes the client from the given channels, or from all of them if none
  * is given.
  */
-int PubSubThread::UnSubscribe(std::shared_ptr<PinkConn> conn,
+int PubSubThread::UnSubscribe(const std::shared_ptr<PinkConn>& conn,
                               const std::vector<std::string>& channels,
                               const bool pattern,
                               std::vector<std::pair<std::string, int>>* result) {

@@ -76,13 +76,13 @@ int PinkEpoll::PinkDelEvent(const int fd) {
   return epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, &ee);
 }
 
-bool PinkEpoll::Register(const PinkItem& it, bool force) {
+bool PinkEpoll::Register(PinkItem&& it, bool force) {
   bool success = false;
   notify_queue_protector_.Lock();
   if (force ||
       queue_limit_ == kUnlimitedQueue ||
       notify_queue_.size() < static_cast<size_t>(queue_limit_)) {
-    notify_queue_.push(it);
+    notify_queue_.push(std::move(it));
     success = true;
   }
   notify_queue_protector_.Unlock();
@@ -93,12 +93,11 @@ bool PinkEpoll::Register(const PinkItem& it, bool force) {
 }
 
 PinkItem PinkEpoll::notify_queue_pop() {
-  PinkItem it;
   notify_queue_protector_.Lock();
-  it = notify_queue_.front();
+  PinkItem it = std::move(notify_queue_.front());
   notify_queue_.pop();
   notify_queue_protector_.Unlock();
-  return it;
+  return std::move(it);
 }
 
 int PinkEpoll::PinkPoll(const int timeout) {

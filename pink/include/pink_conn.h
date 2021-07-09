@@ -112,11 +112,11 @@ class PinkConn : public std::enable_shared_from_this<PinkConn> {
 
  private:
   int fd_;
+  int flags_;
   std::string ip_port_;
   bool is_reply_;
   bool is_writable_;
   struct timeval last_interaction_;
-  int flags_;
 
 #ifdef __ENABLE_SSL
   SSL* ssl_;

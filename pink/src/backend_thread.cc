@@ -279,7 +279,7 @@ void BackendThread::InternalDebugPrint() {
     const std::vector<std::string>& tmp = to_send.second;
     for (const auto& tmp_to_send : tmp) {
       UNUSED(tmp_to_send);
-      log_info("%s %s\n", to_send.first.c_str(), tmp_to_send.c_str());
+      log_info("%d %s\n", to_send.first, tmp_to_send.c_str());
     }
   }
   }
@@ -297,21 +297,21 @@ void BackendThread::InternalDebugPrint() {
   log_info("___________________________________\n");
 }
 
-void BackendThread::NotifyWrite(const std::string ip_port) {
+void BackendThread::NotifyWrite(const std::string& ip_port) {
   // put fd = 0, cause this lib user doesnt need to know which fd to write to
   // we will check fd by checking ipport_conns_
   PinkItem ti(0, ip_port, kNotiWrite);
-  pink_epoll_->Register(ti, true);
+  pink_epoll_->Register(std::move(ti), true);
 }
 
 void BackendThread::NotifyWrite(const int fd) {
   PinkItem ti(fd, "", kNotiWrite);
-  pink_epoll_->Register(ti, true);
+  pink_epoll_->Register(std::move(ti), true);
 }
 
 void BackendThread::NotifyClose(const int fd) {
   PinkItem ti(fd, "", kNotiClose);
-  pink_epoll_->Register(ti, true);
+  pink_epoll_->Register(std::move(ti), true);
 }
 
 void BackendThread::ProcessNotifyEvents(const PinkFiredEvent* pfe) {

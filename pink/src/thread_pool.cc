@@ -5,20 +5,59 @@
 
 #include "pink/include/thread_pool.h"
 #include "pink/src/pink_thread_name.h"
+//#include <terark/util/concurrent_queue.hpp>
+//#include <terark/circular_queue.hpp>
+//#include <terark/valvec.hpp>
 
 #include <sys/time.h>
 
 namespace pink {
 
+class ThreadPool::Worker {
+  public:
+    explicit Worker(ThreadPool* tp)
+       : rsignal_(&mu_), wsignal_(&mu_), start_(false), thread_pool_(tp)
+    {
+      // ignore user specified queue cap
+      //queue_.queue().init(64); // cap=64 is enough
+    }
+    static void* WorkerMain(void* arg);
+
+    void WorkerRun();
+
+    void Schedual(TaskFunc func, void* arg);
+    void DelaySchedule(uint64_t timeout, TaskFunc func, void* arg);
+
+    int start();
+    int stop();
+
+    //terark::util::concurrent_queue<terark::circular_queue<Task> > queue_;
+    //std::priority_queue<TimeTask, terark::valvec<TimeTask> > time_queue_;
+    std::queue<Task> queue_;
+    std::priority_queue<TimeTask> time_queue_;
+    slash::Mutex mu_;
+    slash::CondVar rsignal_;
+    slash::CondVar wsignal_;
+
+    std::atomic<bool> start_;
+    ThreadPool* const thread_pool_;
+    pthread_t thread_id_;
+    std::string worker_name_;
+    /*
+      * No allowed copy and copy assign
+      */
+    Worker(const Worker&) = delete;
+    void operator=(const Worker&) = delete;
+};
+
 void* ThreadPool::Worker::WorkerMain(void* arg) {
-  ThreadPool* tp = static_cast<ThreadPool*>(arg);
-  tp->runInThread();
+  static_cast<Worker*>(arg)->WorkerRun();
   return nullptr;
 }
 
 int ThreadPool::Worker::start() {
   if (!start_.load()) {
-    if (pthread_create(&thread_id_, NULL, &WorkerMain, thread_pool_)) {
+    if (pthread_create(&thread_id_, NULL, &WorkerMain, this)) {
       return -1;
     } else {
       start_.store(true);
@@ -46,10 +85,8 @@ ThreadPool::ThreadPool(size_t worker_num,
   max_queue_size_(max_queue_size),
   thread_pool_name_(thread_pool_name),
   running_(false),
-  should_stop_(false),
-  mu_(),
-  rsignal_(&mu_),
-  wsignal_(&mu_) {}
+  should_stop_(false)
+  {}
 
 ThreadPool::~ThreadPool() {
   stop_thread_pool();
@@ -74,9 +111,9 @@ int ThreadPool::stop_thread_pool() {
   int res = 0;
   if (running_.load()) {
     should_stop_.store(true);
-    rsignal_.SignalAll();
-    wsignal_.SignalAll();
     for (const auto worker : workers_) {
+      worker->rsignal_.SignalAll();
+      worker->wsignal_.SignalAll();
       res = worker->stop();
       if (res != 0) {
         break;
@@ -99,11 +136,19 @@ void ThreadPool::set_should_stop() {
 }
 
 void ThreadPool::Schedule(TaskFunc func, void* arg) {
+  unsigned int unused = 0;
+  auto tsc = __builtin_ia32_rdtscp(&unused);
+  auto idx = tsc % uint16_t(worker_num_);
+  auto wrk = workers_[idx];
+  wrk->Schedual(func, arg);
+}
+void ThreadPool::Worker::Schedual(TaskFunc func, void* arg) {
+  ThreadPool* tp = thread_pool_;
   mu_.Lock();
-  while (queue_.size() >= max_queue_size_ && !should_stop()) {
+  while (queue_.size() >= tp->max_queue_size_ && !tp->should_stop()) {
     wsignal_.Wait();
   }
-  if (!should_stop()) {
+  if (!tp->should_stop()) {
     queue_.push(Task(func, arg));
     rsignal_.Signal();
   }
@@ -115,6 +160,14 @@ void ThreadPool::Schedule(TaskFunc func, void* arg) {
  */
 void ThreadPool::DelaySchedule(
     uint64_t timeout, TaskFunc func, void* arg) {
+  unsigned int unused = 0;
+  auto tsc = __builtin_ia32_rdtscp(&unused);
+  auto idx = tsc % uint16_t(worker_num_);
+  auto wrk = workers_[idx];
+  wrk->DelaySchedule(timeout, func, arg);
+}
+void ThreadPool::Worker::DelaySchedule(
+    uint64_t timeout, TaskFunc func, void* arg) {
   /*
    * pthread_cond_timedwait api use absolute API
    * so we need gettimeofday + timeout
@@ -125,7 +178,7 @@ void ThreadPool::DelaySchedule(
   exec_time = now.tv_sec * 1000000 + timeout * 1000 + now.tv_usec;
 
   mu_.Lock();
-  if (!should_stop()) {
+  if (!thread_pool_->should_stop()) {
     time_queue_.push(TimeTask(exec_time, func, arg));
     rsignal_.Signal();
   }
@@ -137,26 +190,35 @@ size_t ThreadPool::max_queue_size() {
 }
 
 void ThreadPool::cur_queue_size(size_t* qsize) {
-  slash::MutexLock l(&mu_);
-  *qsize = queue_.size();
+  size_t n = 0;
+  for (auto w : workers_) {
+    slash::MutexLock l(&w->mu_);
+    n += w->queue_.size();
+  }
+  *qsize = n;
 }
 
 void ThreadPool::cur_time_queue_size(size_t* qsize) {
-  slash::MutexLock l(&mu_);
-  *qsize = time_queue_.size();
+  size_t n = 0;
+  for (auto w : workers_) {
+    slash::MutexLock l(&w->mu_);
+    n += w->time_queue_.size();
+  }
+  *qsize = n;
 }
 
 std::string ThreadPool::thread_pool_name() {
   return thread_pool_name_;
 }
 
-void ThreadPool::runInThread() {
-  while (!should_stop()) {
+void ThreadPool::Worker::WorkerRun() {
+  ThreadPool* tp = thread_pool_;
+  while (!tp->should_stop()) {
     mu_.Lock();
-    while (queue_.empty() && time_queue_.empty() && !should_stop()) {
+    while (queue_.empty() && time_queue_.empty() && !tp->should_stop()) {
       rsignal_.Wait();
     }
-    if (should_stop()) {
+    if (tp->should_stop()) {
       mu_.Unlock();
       break;
     }
@@ -173,7 +235,7 @@ void ThreadPool::runInThread() {
         mu_.Unlock();
         (*func)(arg);
         continue;
-      } else if (queue_.empty() && !should_stop()) {
+      } else if (queue_.empty() && !tp->should_stop()) {
         rsignal_.TimedWait(
             static_cast<uint32_t>((time_task.exec_time - unow) / 1000));
         mu_.Unlock();

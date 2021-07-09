@@ -25,6 +25,7 @@ PinkConn::PinkConn(const int fd,
 #endif
       thread_(thread),
       pink_epoll_(pink_epoll) {
+  flags_ = 0;
   gettimeofday(&last_interaction_, nullptr);
 }
 

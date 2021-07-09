@@ -41,24 +41,7 @@ struct TimeTask {
 class ThreadPool {
 
  public:
-  class Worker {
-    public:
-      explicit Worker(ThreadPool* tp) : start_(false), thread_pool_(tp) {};
-      static void* WorkerMain(void* arg);
-
-      int start();
-      int stop();
-    private:
-      pthread_t thread_id_;
-      std::atomic<bool> start_;
-      ThreadPool* const thread_pool_;
-      std::string worker_name_;
-      /*
-       * No allowed copy and copy assign
-       */
-      Worker(const Worker&);
-      void operator=(const Worker&);
-  };
+  class Worker;
 
   explicit ThreadPool(size_t worker_num,
                       size_t max_queue_size,
@@ -79,26 +62,18 @@ class ThreadPool {
   std::string thread_pool_name();
 
  private:
-  void runInThread();
-
   size_t worker_num_;
   size_t max_queue_size_;
   std::string thread_pool_name_;
-  std::queue<Task> queue_;
-  std::priority_queue<TimeTask> time_queue_;
   std::vector<Worker*> workers_;
   std::atomic<bool> running_;
   std::atomic<bool> should_stop_;
 
-  slash::Mutex mu_;
-  slash::CondVar rsignal_;
-  slash::CondVar wsignal_;
-
   /*
    * No allowed copy and copy assign
    */
-  ThreadPool(const ThreadPool&);
-  void operator=(const ThreadPool&);
+  ThreadPool(const ThreadPool&) = delete;
+  void operator=(const ThreadPool&) = delete;
 };
 
 }  // namespace pink

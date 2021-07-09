@@ -39,7 +39,7 @@ class PinkEpoll {
   }
   PinkItem notify_queue_pop();
 
-  bool Register(const PinkItem& it, bool force);
+  bool Register(PinkItem&& it, bool force);
   bool Deregister(const PinkItem& it) { return false; }
 
  private:

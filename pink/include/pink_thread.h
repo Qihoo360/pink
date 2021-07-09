@@ -48,13 +48,11 @@ class Thread {
   }
 
  protected:
-  std::atomic<bool> should_stop_;
-
- private:
   static void* RunThread(void* arg);
   virtual void *ThreadMain() = 0;
 
   slash::Mutex running_mu_;
+  std::atomic<bool> should_stop_;
   bool running_;
   pthread_t thread_id_;
   std::string thread_name_;

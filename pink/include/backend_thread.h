@@ -93,7 +93,7 @@ class BackendHandle {
   /*
    * DestConnectFailedHandle(...) will run the invoker's logic when socket connect failed
    */
-  virtual void DestConnectFailedHandle(std::string ip_port, std::string reason) const {
+  virtual void DestConnectFailedHandle(const std::string& ip_port, const std::string& reason) const {
     UNUSED(ip_port);
     UNUSED(reason);
   }
@@ -131,7 +131,7 @@ class BackendThread : public Thread {
   void CloseFd(const int fd);
   void CleanUpConnRemaining(const int fd);
   void DoCronTask();
-  void NotifyWrite(const std::string ip_port);
+  void NotifyWrite(const std::string& ip_port);
   void NotifyWrite(const int fd);
   void NotifyClose(const int fd);
   void ProcessNotifyEvents(const PinkFiredEvent* pfe);

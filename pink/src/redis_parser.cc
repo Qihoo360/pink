@@ -12,9 +12,13 @@
 
 namespace pink {
 
+#if 1
+  #define IsHexDigit isxdigit
+#else
 static bool IsHexDigit(char ch) {
   return (ch>='0' && ch<='9') || (ch>='a' && ch<='f') || (ch>='A' && ch<='F');
 }
+#endif
 
 static int HexDigitToInt32(char ch) {
   if (ch <= '9' && ch >= '0') {
@@ -28,8 +32,8 @@ static int HexDigitToInt32(char ch) {
   }
 }
 
-static int split2args(const std::string& req_buf, RedisCmdArgsType& argv) {
-  const char *p = req_buf.data();
+static int split2args(const char* req_buf, RedisCmdArgsType& argv) {
+  const char *p = req_buf;
   std::string arg;
 
   while (1) {
@@ -128,7 +132,13 @@ static int split2args(const std::string& req_buf, RedisCmdArgsType& argv) {
 }
 
 
-int RedisParser::FindNextSeparators() {
+inline int RedisParser::FindNextSeparators() {
+#if 1
+  assert(cur_pos_ <= length_);
+  if (auto f = memchr(input_buf_ + cur_pos_, '\n', length_ - cur_pos_)) {
+    return (const char*)f - input_buf_;
+  }
+#else
   if (cur_pos_ > length_ - 1) {
     return -1;
   }
@@ -139,6 +149,7 @@ int RedisParser::FindNextSeparators() {
     }
     pos++;
   }
+#endif
   return -1;
 }
 
@@ -179,8 +190,7 @@ void RedisParser::SetParserStatus(RedisParserStatus status,
 }
 
 void RedisParser::CacheHalfArgv() {
-  std::string tmp(input_buf_ + cur_pos_, length_ - cur_pos_);
-  half_argv_ = tmp;
+  half_argv_.assign(input_buf_ + cur_pos_, length_ - cur_pos_);
   cur_pos_ = length_;
 }
 
@@ -213,8 +223,12 @@ RedisParserStatus RedisParser::ProcessInlineBuffer() {
       return status_code_;
     }
   }
+#if 1
+  const char* req_buf = input_buf_ + cur_pos_;
+#else
   // args \r\n
   std::string req_buf(input_buf_ + cur_pos_, pos + 1 - cur_pos_);
+#endif
 
   argv_.clear();
   ret = split2args(req_buf, argv_);
@@ -367,20 +381,22 @@ RedisParserStatus RedisParser::ProcessRequestBuffer() {
       return kRedisParserError;
     }
     if (!argv_.empty()) {
-      argvs_.push_back(argv_);
+      argvs_.push_back(std::move(argv_));
+      auto& last = argvs_.back();
       if (parser_settings_.DealMessage) {
-        if (parser_settings_.DealMessage(this, argv_) != 0) {
+        if (parser_settings_.DealMessage(this, last) != 0) {
           SetParserStatus(kRedisParserError, kRedisParserDealError);
           return status_code_;
         }
       }
     }
-    argv_.clear();
+    assert(argv_.empty());
+    // argv_.clear();
     // Reset
     ResetCommandStatus();
   }
   if (parser_settings_.Complete) {
-    if (parser_settings_.Complete(this, argvs_) != 0) {
+    if (parser_settings_.Complete(this, std::move(argvs_)) != 0) {
       SetParserStatus(kRedisParserError, kRedisParserCompleteError);
       return status_code_;
     }

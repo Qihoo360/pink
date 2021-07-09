@@ -47,7 +47,7 @@ class HolyThread: public ServerThread {
 
   virtual std::shared_ptr<PinkConn> MoveConnOut(int fd) override;
 
-  virtual void MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& type) override { }
+  virtual void MoveConnIn(const std::shared_ptr<PinkConn>& conn, NotifyType) override { }
 
   virtual void KillAllConns() override;
 

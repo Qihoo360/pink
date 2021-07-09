@@ -42,12 +42,12 @@ class PubSubThread : public Thread {
 
   int Publish(const std::string& channel, const std::string& msg);
 
-  void Subscribe(std::shared_ptr<PinkConn> conn,
+  void Subscribe(const std::shared_ptr<PinkConn>& conn,
                  const std::vector<std::string>& channels,
                  const bool pattern,
                  std::vector<std::pair<std::string, int>>* result);
 
-  int UnSubscribe(std::shared_ptr<PinkConn> conn,
+  int UnSubscribe(const std::shared_ptr<PinkConn>& conn,
                   const std::vector<std::string>& channels,
                   const bool pattern,
                   std::vector<std::pair<std::string, int>>* result);
@@ -61,9 +61,9 @@ class PubSubThread : public Thread {
   int PubSubNumPat();
 
   // Move out from pubsub thread
-  void MoveConnOut(std::shared_ptr<PinkConn> conn);
+  void MoveConnOut(const std::shared_ptr<PinkConn>& conn);
   // Move into pubsub thread
-  void MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& notify_type);
+  void MoveConnIn(const std::shared_ptr<PinkConn>& conn, NotifyType notify_type);
 
   enum ReadyState {
     kNotReady,
@@ -71,7 +71,7 @@ class PubSubThread : public Thread {
   };
 
   struct ConnHandle {
-    ConnHandle(std::shared_ptr<PinkConn> pc, ReadyState state = kNotReady)
+    ConnHandle(const std::shared_ptr<PinkConn>& pc, ReadyState state = kNotReady)
       : conn(pc), ready_state(state) { }
     void UpdateReadyState(const ReadyState& state);
     bool IsReady();
@@ -84,9 +84,9 @@ class PubSubThread : public Thread {
   bool IsReady(int fd);
 
  private:
-  void RemoveConn(std::shared_ptr<PinkConn> conn);
+  void RemoveConn(const std::shared_ptr<PinkConn>& conn);
 
-  int ClientChannelSize(std::shared_ptr<PinkConn> conn);
+  int ClientChannelSize(const std::shared_ptr<PinkConn>& conn);
 
   int msg_pfd_[2];
   bool should_exit_;

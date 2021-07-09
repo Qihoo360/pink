@@ -64,9 +64,9 @@ std::shared_ptr<PinkConn> WorkerThread::MoveConnOut(int fd) {
   return conn;
 }
 
-bool WorkerThread::MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& notify_type, bool force) {
+bool WorkerThread::MoveConnIn(const std::shared_ptr<PinkConn>& conn, NotifyType notify_type, bool force) {
   PinkItem it(conn->fd(), conn->ip_port(), notify_type);
-  bool success = MoveConnIn(it, force);
+  bool success = MoveConnIn(std::move(it), force);
   if (success) {
     slash::WriteLock l(&rwlock_);
     conns_[conn->fd()] = conn;
@@ -74,8 +74,8 @@ bool WorkerThread::MoveConnIn(std::shared_ptr<PinkConn> conn, const NotifyType& 
   return success;
 }
 
-bool WorkerThread::MoveConnIn(const PinkItem& it, bool force) {
-  return pink_epoll_->Register(it, force);
+bool WorkerThread::MoveConnIn(PinkItem&& it, bool force) {
+  return pink_epoll_->Register(std::move(it), force);
 }
 
 void *WorkerThread::ThreadMain() {

@@ -201,12 +201,12 @@ void PbConn::TryResizeBuffer() {
 
 void PbConn::NotifyWrite() {
   pink::PinkItem ti(fd(), ip_port(), pink::kNotiWrite);
-  pink_epoll()->Register(ti, true);
+  pink_epoll()->Register(std::move(ti), true);
 }
 
 void PbConn::NotifyClose() {
   pink::PinkItem ti(fd(), ip_port(), pink::kNotiClose);
-  pink_epoll()->Register(ti, true);
+  pink_epoll()->Register(std::move(ti), true);
 }
 
 }  // namespace pink
